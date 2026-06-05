@@ -166,14 +166,14 @@ export default function StudentDashboard({ user }) {
         finalSelectedOption: String(selected),
         timeSpent: Number(timeSpentMapRef.current[q.id] || 0),
         optionChanges: Number(optionChangesRef.current[q.id] || 0),
-        markedForReview: Boolean(reviews[q.id] || false),
+        markedForReview: Boolean(reviews[q.id] || (reviewTimesMapRef.current[q.id] || 0) > 0),
         reviewClickCount: Number(reviewTimesMapRef.current[q.id] || 0),
         confidenceRating: Number(confidenceRef.current[q.id] || 0),
         isCorrect: Boolean(isCorrect),
       };
     });
 
-    return {
+    const payload = {
       institution: college,
       studentCgpa: parseFloat(cgpa),
       studentUid: user.uid,
@@ -183,6 +183,8 @@ export default function StudentDashboard({ user }) {
       timestamp: new Date().toISOString(),
       behavioralMetrics: trackingMetrics,
     };
+    console.log("📡 Submitting payload to Firebase:", payload);
+    return payload;
   };
 
   const forceAutoSubmission = async () => {
