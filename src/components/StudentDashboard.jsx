@@ -290,6 +290,10 @@ export default function StudentDashboard({ user }) {
     id: "",
   };
 
+  const missingConfidenceCount = questions.filter(
+    (q) => answers[q.id] && !confidence[q.id]
+  ).length;
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-600 font-sans text-xs flex flex-col md:flex-row">
       <div className="flex-1 p-6 space-y-6 flex flex-col justify-between">
@@ -327,10 +331,17 @@ export default function StudentDashboard({ user }) {
           </div>
 
           {answers[activeQuestion.id] && (
-            <div className="bg-white border border-slate-200 p-4 rounded-xl space-y-2.5 shadow-sm transition animate-fadeIn">
-              <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider text-slate-500">
-                <Gauge className="w-3.5 h-3.5 text-blue-600" /> Response
-                Confidence Index
+            <div className={`bg-white border p-4 rounded-xl space-y-2.5 shadow-sm transition-all duration-300 ${!confidence[activeQuestion.id] ? "border-rose-300 bg-rose-50/10" : "border-slate-200"}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider text-slate-500">
+                  <Gauge className="w-3.5 h-3.5 text-blue-600" /> Response
+                  Confidence Index
+                </div>
+                {!confidence[activeQuestion.id] && (
+                  <span className="text-[9px] text-rose-600 font-bold uppercase tracking-wide animate-pulse">
+                    ⚠️ Mark your confidence
+                  </span>
+                )}
               </div>
               <div className="flex bg-slate-100 border border-slate-200/60 p-1 rounded-xl gap-1">
                 {[1, 2, 3, 4, 5].map((num) => {
@@ -338,6 +349,7 @@ export default function StudentDashboard({ user }) {
                   return (
                     <button
                       key={num}
+                      type="button"
                       onClick={() => recordConfidenceIndex(num)}
                       className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${isActive ? "bg-white text-blue-600 shadow-sm" : "text-slate-400 hover:text-slate-600"}`}
                     >
@@ -460,13 +472,22 @@ export default function StudentDashboard({ user }) {
           </div>
         </div>
 
+        {missingConfidenceCount > 0 && (
+          <div className="text-rose-600 font-bold text-center text-[10px] mt-4 uppercase animate-pulse bg-rose-50 border border-rose-200/50 p-2.5 rounded-xl">
+            ⚠️ Mark confidence on all answered questions to submit ({missingConfidenceCount} remaining)
+          </div>
+        )}
         <button
           type="button"
           onClick={() => {
+            if (missingConfidenceCount > 0) {
+              alert(`Please mark your confidence level for all answered questions first (${missingConfidenceCount} remaining).`);
+              return;
+            }
             syncActiveTelemetry();
             setIsSubmitModalOpen(true);
           }}
-          className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl text-xs tracking-wider transition uppercase mt-6 shadow-sm"
+          className={`w-full font-bold py-2.5 rounded-xl text-xs tracking-wider transition uppercase mt-2 shadow-sm ${missingConfidenceCount > 0 ? "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300/40" : "bg-rose-600 hover:bg-rose-700 text-white"}`}
         >
           Final Exam Submission
         </button>
