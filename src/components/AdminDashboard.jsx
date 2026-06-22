@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from "react";
 import {
-  collection,
-  getDocs,
-  doc,
-  setDoc,
-  getDoc,
-  writeBatch,
-} from "firebase/firestore";
-import { auth, db } from "../config/firebase";
+  apiGetQuestions,
+  apiBulkUpdateQuestions,
+  apiGetSettings,
+  apiUpdateSettings,
+} from "../config/api";
 import {
   PlusCircle,
   Sliders,
@@ -21,13 +18,12 @@ import {
   Send,
 } from "lucide-react";
 
-export default function AdminDashboard() {
+export default function AdminDashboard({ onLogout }) {
   const [totalTime, setTotalTime] = useState(30);
   const [passingScore, setPassingScore] = useState(40);
 
-  // Local sandboxed working memory pool (Draft Mode)
   const [questions, setQuestions] = useState([]);
-  const [loading, setLoading] = useState(false); // Defaulting to false so it doesn't force a pre-auth load screen
+  const [loading, setLoading] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const [qText, setQText] = useState("");
@@ -37,7 +33,6 @@ export default function AdminDashboard() {
   const [difficulty, setDifficulty] = useState("medium");
   const [blooms, setBlooms] = useState("Understanding");
 
-  // Inline editing state vectors
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({
     text: "",
@@ -48,33 +43,28 @@ export default function AdminDashboard() {
     bloomsLevel: "Understanding",
   });
 
-  // Safe Mount Trigger: Only pulls data if an authenticated user is actually present
   useEffect(() => {
-    if (auth.currentUser) {
-      loadSettings();
-      loadQuestions();
-    }
+    loadSettings();
+    loadQuestions();
   }, []);
 
   const loadSettings = async () => {
     try {
-      const docSnap = await getDoc(doc(db, "settings", "config"));
-      if (docSnap.exists()) {
-        setTotalTime(docSnap.data().totalTimeAllowed || 30);
-        setPassingScore(docSnap.data().passingThreshold || 40);
-      }
+      const data = await apiGetSettings();
+      setTotalTime(data.totalTimeAllowed || 30);
+      setPassingScore(data.passingThreshold || 40);
     } catch (err) {
-      console.error("Error reading configuration settings:", err);
+      console.error("Error reading settings:", err);
     }
   };
 
   const loadQuestions = async () => {
     try {
       setLoading(true);
-      const snap = await getDocs(collection(db, "questions"));
-      setQuestions(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const data = await apiGetQuestions();
+      setQuestions(data);
     } catch (err) {
-      console.error("Failed to load question repository:", err);
+      console.error("Failed to load questions:", err);
     } finally {
       setLoading(false);
     }
@@ -82,11 +72,12 @@ export default function AdminDashboard() {
 
   const handleSaveSettings = async (e) => {
     e.preventDefault();
-    await setDoc(doc(db, "settings", "config"), {
-      totalTimeAllowed: parseInt(totalTime),
-      passingThreshold: parseInt(passingScore),
-    });
-    alert("Global configurations updated.");
+    try {
+      await apiUpdateSettings(parseInt(totalTime), parseInt(passingScore));
+      alert("Global configurations updated.");
+    } catch (err) {
+      alert("Failed to update settings: " + err.message);
+    }
   };
 
   const runLinguisticParser = (text) => {
@@ -205,36 +196,20 @@ export default function AdminDashboard() {
 
     setLoading(true);
     try {
-      const currentSnap = await getDocs(collection(db, "questions"));
-      const currentCloudIds = currentSnap.docs.map((doc) => doc.id);
+      const cleanQuestions = questions.map((q) => ({
+        text: q.text,
+        options: q.options,
+        correctAnswer: q.correctAnswer,
+        type: q.type,
+        difficulty: q.difficulty,
+        bloomsLevel: q.bloomsLevel,
+        fleschEase: q.fleschEase,
+        gunningFogIndex: q.gunningFogIndex,
+        lexicalDiversity: q.lexicalDiversity,
+        syntacticComplexity: q.syntacticComplexity,
+      }));
 
-      const localIds = questions.map((q) => q.id);
-      const idsToDelete = currentCloudIds.filter(
-        (id) => !localIds.includes(id),
-      );
-
-      const batch = writeBatch(db);
-
-      for (const id of idsToDelete) {
-        batch.delete(doc(db, "questions", id));
-      }
-
-      questions.forEach((q) => {
-        const cleanPayload = { ...q };
-        delete cleanPayload.id;
-        delete cleanPayload.isNew;
-        delete cleanPayload.isEdited;
-
-        if (q.id.toString().startsWith("temp_")) {
-          const newDocRef = doc(collection(db, "questions"));
-          batch.set(newDocRef, cleanPayload);
-        } else {
-          batch.set(doc(db, "questions", q.id), cleanPayload);
-        }
-      });
-
-      await batch.commit();
-
+      await apiBulkUpdateQuestions(cleanQuestions);
       setHasUnsavedChanges(false);
       alert("Test configuration synchronized live successfully!");
       loadQuestions();
@@ -248,7 +223,6 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-slate-50 p-6 font-sans text-slate-700">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* DRAFT STATE RUNTIME FLOATER HEADER NOTICE */}
         {hasUnsavedChanges && (
           <div className="bg-amber-500 text-white font-bold p-3 rounded-xl shadow-md text-xs flex justify-between items-center">
             <span>
@@ -264,7 +238,6 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* HEADER PANEL */}
         <div className="flex items-center justify-between bg-white border border-slate-200 p-4 rounded-xl shadow-sm">
           <div className="flex items-center gap-3">
             <Terminal className="w-5 h-5 text-blue-600" />
@@ -281,7 +254,7 @@ export default function AdminDashboard() {
               <Send className="w-3.5 h-3.5" /> Commit All Changes Done
             </button>
             <button
-              onClick={() => auth.signOut()}
+              onClick={onLogout}
               className="flex items-center gap-2 text-xs border border-slate-200 hover:border-rose-300 px-3 py-2 rounded-lg transition bg-white text-slate-600 hover:text-rose-600 shadow-sm"
             >
               <LogOut className="w-3.5 h-3.5" /> Disconnect
@@ -290,7 +263,6 @@ export default function AdminDashboard() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* LEFT COLUMN: EXAM PARAMETERS */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4 shadow-sm h-fit">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100 text-slate-800 font-bold text-xs uppercase tracking-wider">
               <Sliders className="w-4 h-4 text-blue-600" /> Exam Parameters
@@ -327,7 +299,6 @@ export default function AdminDashboard() {
             </form>
           </div>
 
-          {/* RIGHT COLUMN: QUESTION COMPILER */}
           <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl p-5 space-y-4 shadow-sm">
             <div className="flex items-center gap-2 pb-2 border-b border-slate-100 text-slate-800 font-bold text-xs uppercase tracking-wider">
               <PlusCircle className="w-4 h-4 text-blue-600" /> Build Assessment
@@ -446,7 +417,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* WORKSPACE DISPLAY ROW */}
         <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4 shadow-sm">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
             <div className="flex items-center gap-2 text-slate-800 font-bold text-xs uppercase tracking-wider">
@@ -488,10 +458,7 @@ export default function AdminDashboard() {
                               rows="2"
                               value={editForm.text}
                               onChange={(e) =>
-                                setEditForm({
-                                  ...editForm,
-                                  text: e.target.value,
-                                })
+                                setEditForm({ ...editForm, text: e.target.value })
                               }
                               className="w-full p-1.5 bg-white border border-slate-300 rounded text-xs outline-none"
                             />
@@ -504,40 +471,30 @@ export default function AdminDashboard() {
                                   onChange={(e) => {
                                     const nextOpts = [...editForm.options];
                                     nextOpts[oIdx] = e.target.value;
-                                    setEditForm({
-                                      ...editForm,
-                                      options: nextOpts,
-                                    });
+                                    setEditForm({ ...editForm, options: nextOpts });
                                   }}
                                   placeholder={`Option ${oIdx + 1}`}
                                   className="p-1 bg-white border border-slate-200 rounded text-[10px]"
                                 />
                               ))}
                             </div>
-                            <div className="flex gap-2">
-                              <select
-                                value={editForm.correctAnswer}
-                                onChange={(e) =>
-                                  setEditForm({
-                                    ...editForm,
-                                    correctAnswer: e.target.value,
-                                  })
-                                }
-                                className="p-1 bg-white border border-slate-200 rounded text-[10px]"
-                              >
-                                <option value="">
-                                  Select Target Key Match...
-                                </option>
-                                {editForm.options.map(
-                                  (o, i) =>
-                                    o && (
-                                      <option key={i} value={o}>
-                                        Variant {i + 1}: {o}
-                                      </option>
-                                    ),
-                                )}
-                              </select>
-                            </div>
+                            <select
+                              value={editForm.correctAnswer}
+                              onChange={(e) =>
+                                setEditForm({ ...editForm, correctAnswer: e.target.value })
+                              }
+                              className="p-1 bg-white border border-slate-200 rounded text-[10px]"
+                            >
+                              <option value="">Select Target Key Match...</option>
+                              {editForm.options.map(
+                                (o, i) =>
+                                  o && (
+                                    <option key={i} value={o}>
+                                      Variant {i + 1}: {o}
+                                    </option>
+                                  ),
+                              )}
+                            </select>
                           </div>
                         ) : (
                           <div>
@@ -564,9 +521,7 @@ export default function AdminDashboard() {
                         {isEditing ? (
                           <select
                             value={editForm.type}
-                            onChange={(e) =>
-                              setEditForm({ ...editForm, type: e.target.value })
-                            }
+                            onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}
                             className="p-1 bg-white border border-slate-200 rounded text-[10px]"
                           >
                             <option value="theoretical">Theoretical</option>
@@ -580,12 +535,7 @@ export default function AdminDashboard() {
                         {isEditing ? (
                           <select
                             value={editForm.bloomsLevel}
-                            onChange={(e) =>
-                              setEditForm({
-                                ...editForm,
-                                bloomsLevel: e.target.value,
-                              })
-                            }
+                            onChange={(e) => setEditForm({ ...editForm, bloomsLevel: e.target.value })}
                             className="p-1 bg-white border border-slate-200 rounded text-[10px]"
                           >
                             <option value="Remembering">Remembering</option>
@@ -601,11 +551,9 @@ export default function AdminDashboard() {
                         {isEditing ? "Recalc" : q.fleschEase}
                       </td>
                       <td className="p-2.5 font-semibold text-amber-600">
-                        {" "}
                         {isEditing ? "Recalc" : q.gunningFogIndex}
                       </td>
                       <td className="p-2.5 text-purple-600">
-                        {" "}
                         {isEditing ? "Recalc" : q.lexicalDiversity}
                       </td>
                       <td className="p-2.5 uppercase text-slate-400 text-[10px]">

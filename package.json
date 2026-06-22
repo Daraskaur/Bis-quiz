@@ -1,7 +1,7 @@
 {
   "name": "academic-telemetry-hub",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,13 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "exceljs": "^4.4.0",
-    "firebase": "^10.0.0",
-    "firebase-admin": "^13.10.0",
     "lucide-react": "^0.300.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "xlsx": "^0.18.5"
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",

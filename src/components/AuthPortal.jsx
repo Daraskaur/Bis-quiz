@@ -2,15 +2,10 @@ import institutionLogo from "../assets/thapar_logo.png";
 import bisLogo from "../assets/bis_logo.png";
 
 import React, { useState } from "react";
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-} from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
-import { auth, db } from "../config/firebase";
-import { Shield, Lock, Mail } from "lucide-react";
+import { apiLogin, apiRegister } from "../config/api";
+import { Lock, Mail } from "lucide-react";
 
-export default function AuthPortal() {
+export default function AuthPortal({ onAuthSuccess }) {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,25 +18,15 @@ export default function AuthPortal() {
     setAuthLoading(true);
 
     try {
+      let data;
       if (isSignUp) {
-        const userCredential = await createUserWithEmailAndPassword(
-          auth,
-          email,
-          password,
-        );
-
-        // HARDCODED SECURITY: Public signups can ONLY generate student candidates
-        await setDoc(doc(db, "users", userCredential.user.uid), {
-          uid: userCredential.user.uid,
-          email: email,
-          role: "student",
-          createdAt: new Date().toISOString(),
-        });
+        data = await apiRegister(email, password);
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        data = await apiLogin(email, password);
       }
+      onAuthSuccess(data.user);
     } catch (err) {
-      setError(err.message.replace("Firebase: ", ""));
+      setError(err.message);
     } finally {
       setAuthLoading(false);
     }
@@ -51,7 +36,6 @@ export default function AuthPortal() {
     <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-white border border-slate-200 rounded-xl p-8 shadow-sm">
         <div className="flex flex-col items-center mb-6">
-          {/* --- START OF LOGO CONTAINER (TAILWIND EDITION) --- */}
           <div className="flex justify-center items-center gap-6 mt-4 mb-2">
             <img
               src={institutionLogo}
@@ -64,7 +48,6 @@ export default function AuthPortal() {
               className="h-12.1 max-w-[110px] object-contain"
             />
           </div>
-          {/* --- END OF LOGO CONTAINER --- */}
         </div>
 
         {error && (
