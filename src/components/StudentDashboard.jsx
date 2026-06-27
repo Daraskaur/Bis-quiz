@@ -118,7 +118,7 @@ export default function StudentDashboard({ user, onLogout }) {
   }, [violationCount, completed]);
 
   const handleResumeTest = () => {
-    if (violationCount < 3) {
+    if (violationCount < 1) {
       setShowWarning(false);
       enterFullscreen();
     }
@@ -433,12 +433,12 @@ export default function StudentDashboard({ user, onLogout }) {
         />
       )}
 
-      {showWarning && violationCount < 3 && (
+      {showWarning && violationCount < 1 && (
         <div className="fixed inset-0 bg-slate-950 flex items-center justify-center z-50 p-4 select-none">
           <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl border-t-4 border-amber-500">
             <h3 className="text-base font-bold text-slate-800 uppercase tracking-wide">Security Focus Alert</h3>
-            <p className="text-xs text-slate-500 mt-2 leading-relaxed">You have exited the test window. Strike {violationCount}/3.</p>
-            <p className="text-xs text-rose-600 font-bold mt-2">At 3 strikes, your exam will be auto-submitted.</p>
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed">You have exited the test window.</p>
+            <p className="text-xs text-rose-600 font-bold mt-2">Tab switching is not allowed. Your exam will be terminated.</p>
             <button onClick={handleResumeTest} className="mt-4 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg text-xs uppercase tracking-wider transition">Resume Test</button>
           </div>
         </div>
