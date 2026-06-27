@@ -40,6 +40,7 @@ export default function StudentDashboard({ user, onLogout }) {
 
   const [violationCount, setViolationCount] = useState(0);
   const [showWarning, setShowWarning] = useState(false);
+  const [securityActive, setSecurityActive] = useState(false);
 
   const enterFullscreen = () => {
     const element = document.documentElement;
@@ -50,14 +51,18 @@ export default function StudentDashboard({ user, onLogout }) {
   };
 
   useEffect(() => {
-    if (onboarded && !completed) {
-      const timer = setTimeout(() => enterFullscreen(), 150);
-      return () => clearTimeout(timer);
-    }
-  }, [onboarded, completed]);
+      if (onboarded && !completed) {
+        const timer = setTimeout(() => enterFullscreen(), 150);
+        const gracePeriod = setTimeout(() => setSecurityActive(true), 2000);
+        return () => {
+          clearTimeout(timer);
+          clearTimeout(gracePeriod);
+        };
+      }
+    }, [onboarded, completed]);
 
   useEffect(() => {
-    if (!onboarded || completed) return;
+    if (!securityActive || completed) return;
 
     const enforceSecurityLock = () => {
       const isNotFullscreen =
@@ -82,7 +87,7 @@ export default function StudentDashboard({ user, onLogout }) {
       document.removeEventListener("visibilitychange", enforceSecurityLock);
       document.removeEventListener("fullscreenchange", enforceSecurityLock);
     };
-  }, [onboarded, completed]);
+  }, [securityActive, completed]);
 
   useEffect(() => {
     if (showWarning) {
@@ -91,10 +96,10 @@ export default function StudentDashboard({ user, onLogout }) {
   }, [showWarning]);
 
   useEffect(() => {
-    if (violationCount >= 3 && !completed) {
+    if (violationCount >= 1 && !completed) {
       const executeAutomaticTermination = async () => {
         alert(
-          "Exam permanently terminated! You have exceeded the maximum allowed window violations (3/3).",
+          "Exam permanently terminated! Tab switching is not allowed.",
         );
         const payload = compileSubmissionPayload(timeLeft);
         try {
